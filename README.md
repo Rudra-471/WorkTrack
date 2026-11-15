@@ -49,15 +49,18 @@ npm run dev                   # app on http://localhost:5173
 
 **Security note:** until someone has created their password, anyone who knows their email can create it for them. Ask new people to sign in soon after their account is added. Adding email verification would close this gap.
 
-## Deploying to Render
+## Deploying
 
-`render.yaml` sets up everything: a free PostgreSQL database plus one web service that serves both the API and the built React app.
+- **Website and API:** Render, using `render.yaml`. One web service serves both the API and the built React app.
+- **Database:** PostgreSQL on [Neon](https://neon.tech). The free plan doesn't expire.
 
-1. In the Render dashboard, choose **New → Blueprint** and pick this GitHub repo.
-2. Click **Apply**. Render creates the database, generates `JWT_SECRET`, builds the app and starts it.
-3. Open the service URL and sign in. The starting accounts are created automatically, and each person creates their password on first sign-in.
+1. In the Render dashboard, choose **New → Blueprint** and pick this GitHub repo, then click **Apply**. Render builds the app and generates `JWT_SECRET`.
+2. In Render → **worktrack → Environment**, set `DATABASE_URL` to the Neon connection string (Neon console → Connect). Keep `?sslmode=require` at the end.
+3. On startup the service applies migrations and creates the starting accounts if they're missing.
 
-Every push to `main` deploys again automatically. On the free plan, the service sleeps after 15 minutes without visitors, so the first page load after that takes about a minute. Render's free database also expires after 30 days unless you upgrade it.
+Every push to `main` deploys again automatically. On Render's free plan the service sleeps after 15 minutes without visitors, so the first page load after that takes about a minute.
+
+To move data between databases, run `server/prisma/copy-db.js`. It copies every table into an empty, migrated database (see the comment at the top of the file).
 
 ## Project structure
 
