@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPERVISOR
+  EMPLOYEE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  SUBMITTED
+  COMPLETED
+}
+
+enum ExtensionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  // null until the user creates their password on first sign-in
+  passwordHash String?
+  role         Role     @default(EMPLOYEE)
+  createdAt    DateTime @default(now())
+
+  assignedTasks   Task[]           @relation("AssignedTasks")
+  createdTasks    Task[]           @relation("CreatedTasks")
+  progressUpdates ProgressUpdate[]
+  comments        Comment[]
+  dailyLogs       DailyLog[]
+  notifications   Notification[]
+  activities      Activity[]
+}
+
+model Task {
+  id          Int        @id @default(autoincrement())
+  title       String
+  description String     @default("")
+  priority    Priority   @default(MEDIUM)
+  status      TaskStatus @default(TODO)
+  progress    Int        @default(0)
+  deadline    DateTime
+  // true after the supervisor sends a submission back; cleared on next submit
+  changesRequested Boolean @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  assigneeId  Int
+  assignee    User @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  createdById Int
+  createdBy   User @relation("CreatedTasks", fields: [createdById], references: [id])
+
+  // Deadline extension request (one open request at a time)
+  extensionStatus    ExtensionStatus?
+  requestedDeadline  DateTime?
+  extensionReason    String?
+
+  progressUpdates ProgressUpdate[]
+  comments        Comment[]
+  activities      Activity[]
+
+  @@index([assigneeId])
+  @@index([status])
+}
+
+model ProgressUpdate {
+  id         Int      @id @default(autoincrement())
+  percentage Int
+  note       String
+  hoursSpent Float    @default(0)
+  createdAt  DateTime @default(now())
+
+  taskId Int
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  @@index([taskId])
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  text      String
+  isProblem Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  taskId   Int
+  task     Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId Int
+  author   User @relation(fields: [authorId], references: [id])
+
+  @@index([taskId])
+}
+
+model DailyLog {
+  id         Int      @id @default(autoincrement())
+  date       DateTime @db.Date
+  workDone   String
+  hours      Float
+  challenges String   @default("")
+  planNext   String   @default("")
+  createdAt  DateTime @default(now())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, date])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+}
+
+model Activity {
+  id        Int      @id @default(autoincrement())
+  action    String
+  createdAt DateTime @default(now())
+
+  taskId Int
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  @@index([taskId])
+}
