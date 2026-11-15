@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
 import { HttpError } from './lib.js';
@@ -30,6 +32,18 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Not found')));
+
+// In production the server also serves the built React app (client/dist), so the
+// whole site runs as one service. Any non-API page returns index.html and
+// React Router takes it from there.
+const clientDist = fileURLToPath(new URL('../../client/dist', import.meta.url));
+if (existsSync(clientDist)) {
+  app.use(express.static(clientDist, { index: false, maxAge: '1h' }));
+  app.use((req, res, next) => {
+    if (req.method !== 'GET') return next();
+    res.sendFile('index.html', { root: clientDist });
+  });
+}
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
